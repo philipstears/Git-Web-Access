@@ -91,38 +91,40 @@ namespace GitTools
 
             if (string.IsNullOrEmpty(authMode) || string.Compare(authMode, "none", true) == 0) return true;
 
-            if (string.Compare(authMode, "all", true) == 0 || context.Request.RawUrl.IndexOf("git-receive-pack") >= 0)
+            if (!(string.Compare(authMode, "all", true) == 0 || context.Request.RawUrl.IndexOf("git-receive-pack") >= 0))
             {
-                string authHeader = context.Request.Headers["Authorization"];
+                return true;
+            }
 
-                if (string.IsNullOrEmpty(authHeader))
-                {
-                    context.Response.StatusCode = 401;
-                    context.Response.AddHeader("WWW-Authenticate", "Basic");
-                    return false;
-                }
-                else
-                {
-                    try
-                    {
-                        string userNameAndPassword = Encoding.Default.GetString(
-                            Convert.FromBase64String(authHeader.Substring(6)));
-                        string[] parts = userNameAndPassword.Split(':');
-                        var username = parts[0];
-                        var password = parts[1];
-                        var gitWorkingDir = GetGitDir(context.Request.RawUrl);
-                        
-                        return username == gitWorkingDir.Substring(0, gitWorkingDir.IndexOf("/")) &&
-                               System.Web.Security.Membership.ValidateUser(username, password);
+            string authHeader = context.Request.Headers["Authorization"];
 
-                    }
-                    catch
-                    {
-                        return false;
-                    }
+            if (string.IsNullOrEmpty(authHeader))
+            {
+                context.Response.StatusCode = 401;
+                context.Response.AddHeader("WWW-Authenticate", "Basic");
+                return false;
+            }
+
+            try
+            {
+                string userNameAndPassword = Encoding.Default.GetString(
+                    Convert.FromBase64String(authHeader.Substring(6)));
+                string[] parts = userNameAndPassword.Split(':');
+                var username = parts[0];
+                var password = parts[1];
+                var gitWorkingDir = GetGitDir(context.Request.RawUrl);
+
+                if (true == System.Web.Security.Membership.ValidateUser(username, password))
+                {
+                    return true;
                 }
             }
-            return true;
+            catch
+            {
+            }
+
+            context.Response.StatusCode = 401;
+            return false;
         }
 
         /// <summary>
